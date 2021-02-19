@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: triage
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: triage
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: triage
+    spec:
+      containers:
+      - name: updater
+        image: quay.io/rh-obulatov/triage@sha256:8fc2b17c851d6550e20940ceaa5940973ad556cc6a0d7e36bea062fb8518db36
+        command:
+        - /usr/bin/updater.sh
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "2"
+          limit:
+            memory: "2Gi"
+            cpu: "4"
+        env:
+        - name: NUM_WORKERS
+          value: "4"
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - name: tmp
+          mountPath: /var/triage/tmp
+        - name: cache
+          mountPath: /var/triage/cache
+        - name: output
+          mountPath: /var/triage/output
+      - name: server
+        image: quay.io/rh-obulatov/triage@sha256:8fc2b17c851d6550e20940ceaa5940973ad556cc6a0d7e36bea062fb8518db36
+        command:
+        - /usr/bin/server.sh
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "0.5"
+          limit:
+            memory: "512Mi"
+            cpu: "1"
+        ports:
+        - containerPort: 8080
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - name: output
+          mountPath: /var/triage/output
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: cache
+        persistentVolumeClaim:
+          claimName: cache
+      - name: output
+        persistentVolumeClaim:
+          claimName: output
