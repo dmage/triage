@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/MakeNowJust/heredoc/v2"
+	"github.com/NYTimes/gziphandler"
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 )
@@ -25,10 +26,14 @@ func (opts *ServeOptions) Run(ctx context.Context) error {
 	}
 
 	http.Handle("/", http.FileServer(http.FS(root)))
-	http.HandleFunc("/failure_data.json", func(w http.ResponseWriter, r *http.Request) {
+
+	dataHandler := http.StripPrefix("/data/", http.FileServer(http.Dir(opts.FailureData)))
+	cachedDataHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "max-age=120")
-		http.ServeFile(w, r, opts.FailureData)
+		dataHandler.ServeHTTP(w, r)
 	})
+	http.Handle("/data/", gziphandler.GzipHandler(cachedDataHandler))
+
 	klog.Info("Listening http://localhost:8080...")
 	return http.ListenAndServe(":8080", nil)
 }
@@ -51,7 +56,7 @@ func NewCmdServe() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&opts.FailureData, "failure_data", "./failure_data.json", "file with failures data")
+	cmd.Flags().StringVar(&opts.FailureData, "failure_data", "./", "path to a directory with triage results")
 
 	return cmd
 }

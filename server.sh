@@ -5,4 +5,4 @@ if [ -z "${PRODUCTION-}" ]; then
     PATH="$PWD/hack:$PATH"
 fi
 
-exec scraper serve --failure_data=./output/failure_data.json
+exec scraper serve --failure_data=./output/

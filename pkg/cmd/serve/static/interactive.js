@@ -309,6 +309,7 @@ function getData() {
     var pathname = document.location.pathname;
     url = pathname.substring(0, pathname.lastIndexOf('/')+1);
   }
+  url = '/data/';
   var date = document.getElementById('date');
   if (date && date.value) {
     url += 'history/' + date.value.replace(/-/g, '') + '.json';
@@ -317,7 +318,6 @@ function getData() {
   } else {
     url += 'failure_data.json'
   }
-  url = '/failure_data.json'
 
   setElementVisibility('load-status', true);
   setElementVisibility('clusters', false);

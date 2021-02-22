@@ -15,6 +15,9 @@ github.com/GoogleCloudPlatform/testgrid/metadata/junit
 # github.com/MakeNowJust/heredoc/v2 v2.0.1
 ## explicit
 github.com/MakeNowJust/heredoc/v2
+# github.com/NYTimes/gziphandler v1.1.1
+## explicit
+github.com/NYTimes/gziphandler
 # github.com/go-logr/logr v0.4.0
 github.com/go-logr/logr
 # github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e
