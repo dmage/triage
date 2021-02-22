@@ -6,6 +6,7 @@ if [ -z "${PRODUCTION-}" ]; then
     echo "DEVELOPMENT MODE" >&2
     PATH="$PWD/hack:$PATH"
     MAX_AGE=24h
+    sleep() { exit; }
 fi
 
 mkdir -p ./output/slices
@@ -14,7 +15,10 @@ while true; do
     if [ ! -e ./cache/test-infra ]; then
         git clone https://github.com/kubernetes/test-infra.git ./cache/test-infra
     else
-        (cd ./cache/test-infra && git pull --rebase)
+        (cd ./cache/test-infra && git pull --rebase) || {
+            rm -rf ./cache/test-infra
+            continue
+        }
     fi
 
     scraper discover-testgrid ./cache/test-infra/config/testgrids/openshift/redhat-openshift-*.yaml -v=3
