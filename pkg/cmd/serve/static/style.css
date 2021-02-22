@@ -90,6 +90,16 @@ button.toggle.active {
 .sig-usability              { --color: #4b8583; }
 .sig-windows                { --color: #a45dbc; }
 
+/* OpenShift SIGs */
+.sig-arch          { --color: #861933; }
+.sig-builds        { --color: #47DF4B; }
+.sig-devex         { --color: #F6A688; }
+.sig-etcd          { --color: #F3E180; }
+.sig-imageregistry { --color: #DD82E3; }
+.sig-mco           { --color: #A3CC1D; }
+.sig-network-edge  { --color: #2C8D04; }
+.sig-operator      { --color: #DD5055; }
+
 div.graph {
   width: 1200px;
   height: 200px;  /* keep synchronized with script.js:graphHeight */
