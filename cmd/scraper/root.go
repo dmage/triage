@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/dmage/triage/pkg/cmd/cleanup"
 	"github.com/dmage/triage/pkg/cmd/discovertestgrid"
 	"github.com/dmage/triage/pkg/cmd/exporttriage"
 	"github.com/dmage/triage/pkg/cmd/serve"
@@ -21,6 +22,7 @@ func init() {
 	rootCmd.AddCommand(discovertestgrid.NewCmdDiscoverTestGrid())
 	rootCmd.AddCommand(exporttriage.NewCmdExportTriage())
 	rootCmd.AddCommand(serve.NewCmdServe())
+	rootCmd.AddCommand(cleanup.NewCmdCleanup())
 }
 
 func Execute() {

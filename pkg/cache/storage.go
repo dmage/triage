@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/dmage/triage/pkg/artifacts"
+	"github.com/dmage/triage/pkg/types"
 	_ "github.com/mattn/go-sqlite3"
 	"k8s.io/klog/v2"
 )
@@ -68,10 +68,10 @@ func (s *Storage) Close() error {
 	return s.db.Close()
 }
 
-func (s *Storage) LoadBuild(job, buildID string) (*artifacts.Build, int64, error) {
+func (s *Storage) LoadBuild(job, buildID string) (*types.Build, int64, error) {
 	klog.V(5).Infof("Loading build %s @ %s from storage...", job, buildID)
 
-	build := &artifacts.Build{
+	build := &types.Build{
 		Job:     job,
 		BuildID: buildID,
 	}
@@ -87,7 +87,7 @@ func (s *Storage) LoadBuild(job, buildID string) (*artifacts.Build, int64, error
 	return build, startedAt, err
 }
 
-func (s *Storage) SaveBuild(build *artifacts.Build, startedAt int64) error {
+func (s *Storage) SaveBuild(build *types.Build, startedAt int64) error {
 	klog.V(5).Infof("Saving build %s...", build)
 
 	_, err := s.db.Exec(
@@ -97,10 +97,10 @@ func (s *Storage) SaveBuild(build *artifacts.Build, startedAt int64) error {
 	return err
 }
 
-func (s *Storage) FindBuilds(startedAt int64) ([]artifacts.Build, error) {
+func (s *Storage) FindBuilds(startedAt int64) ([]types.Build, error) {
 	klog.V(5).Infof("Loading builds from storage...")
 
-	var builds []artifacts.Build
+	var builds []types.Build
 	rows, err := s.db.Query(
 		"SELECT job, build_id, gcs_bucket, gcs_prefix FROM builds WHERE started_at >= ?",
 		startedAt,
@@ -111,7 +111,7 @@ func (s *Storage) FindBuilds(startedAt int64) ([]artifacts.Build, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var build artifacts.Build
+		var build types.Build
 		if err := rows.Scan(&build.Job, &build.BuildID, &build.GCSBucket, &build.GCSPrefix); err != nil {
 			return builds, err
 		}
@@ -121,7 +121,41 @@ func (s *Storage) FindBuilds(startedAt int64) ([]artifacts.Build, error) {
 	return builds, nil
 }
 
-func (s *Storage) LoadBuildFiles(build *artifacts.Build) (*artifacts.BuildFiles, error) {
+func (s *Storage) FindOldBuilds(startedAt int64) ([]types.Build, error) {
+	klog.V(5).Infof("Loading old builds from storage...")
+
+	var builds []types.Build
+	rows, err := s.db.Query(
+		"SELECT job, build_id, gcs_bucket, gcs_prefix FROM builds WHERE started_at < ?",
+		startedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var build types.Build
+		if err := rows.Scan(&build.Job, &build.BuildID, &build.GCSBucket, &build.GCSPrefix); err != nil {
+			return builds, err
+		}
+		builds = append(builds, build)
+	}
+
+	return builds, nil
+}
+
+func (s *Storage) DeleteBuild(job, buildID string) error {
+	klog.V(5).Infof("Deleting build %s @ %s...", job, buildID)
+
+	_, err := s.db.Exec(
+		"DELETE FROM builds WHERE job = ? AND build_id = ?",
+		job, buildID,
+	)
+	return err
+}
+
+func (s *Storage) LoadBuildFiles(build *types.Build) (*types.BuildFiles, error) {
 	klog.V(5).Infof("Loading build files for %s @ %s from storage...", build.Job, build.BuildID)
 
 	var filesBuf []byte
@@ -133,14 +167,14 @@ func (s *Storage) LoadBuildFiles(build *artifacts.Build) (*artifacts.BuildFiles,
 		return nil, err
 	}
 
-	buildFiles := &artifacts.BuildFiles{
+	buildFiles := &types.BuildFiles{
 		Build: build,
 	}
 	err = json.Unmarshal(filesBuf, &buildFiles.Files)
 	return buildFiles, err
 }
 
-func (s *Storage) SaveBuildFiles(buildFiles *artifacts.BuildFiles) error {
+func (s *Storage) SaveBuildFiles(buildFiles *types.BuildFiles) error {
 	klog.V(5).Infof("Saving build files for %s @ %s...", buildFiles.Build.Job, buildFiles.Build.BuildID)
 
 	filesBuf, err := json.Marshal(buildFiles.Files)
@@ -151,6 +185,16 @@ func (s *Storage) SaveBuildFiles(buildFiles *artifacts.BuildFiles) error {
 	_, err = s.db.Exec(
 		"INSERT INTO build_files (job, build_id, created_at, files) VALUES (?, ?, strftime('%s', 'now'), ?)",
 		buildFiles.Build.Job, buildFiles.Build.BuildID, filesBuf,
+	)
+	return err
+}
+
+func (s *Storage) DeleteBuildFiles(build *types.Build) error {
+	klog.V(5).Infof("Deleting build files %s @ %s...", build.Job, build.BuildID)
+
+	_, err := s.db.Exec(
+		"DELETE FROM build_files WHERE job = ? AND build_id = ?",
+		build.Job, build.BuildID,
 	)
 	return err
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/dmage/triage/pkg/artifacts"
 	"github.com/dmage/triage/pkg/cache"
+	"github.com/dmage/triage/pkg/types"
 	"github.com/spf13/cobra"
 	"google.golang.org/api/option"
 	"k8s.io/klog/v2"
@@ -97,7 +98,7 @@ func (opts *ExportTriageOptions) startFailuresExporter(failures <-chan jsonFailu
 	return done
 }
 
-func (opts *ExportTriageOptions) worker(ctx context.Context, db *cache.Storage, client *artifacts.Client, builds <-chan artifacts.Build, jsonBuilds chan<- jsonBuild, jsonFailures chan<- jsonFailure) error {
+func (opts *ExportTriageOptions) worker(ctx context.Context, db *cache.Storage, client *artifacts.Client, builds <-chan types.Build, jsonBuilds chan<- jsonBuild, jsonFailures chan<- jsonFailure) error {
 	for build := range builds {
 		klog.V(3).Infof("Analyzing %s @ %s...", build.Job, build.BuildID)
 
@@ -190,7 +191,7 @@ func (opts *ExportTriageOptions) Run(ctx context.Context) error {
 
 	klog.V(2).Infof("Found %d builds", len(builds))
 
-	inputs := make(chan artifacts.Build)
+	inputs := make(chan types.Build)
 	jsonBuilds := make(chan jsonBuild)
 	jsonFailures := make(chan jsonFailure)
 	errs := make(chan error, opts.NumWorkers)

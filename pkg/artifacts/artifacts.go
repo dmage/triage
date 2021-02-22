@@ -6,14 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"unicode/utf8"
 
 	"cloud.google.com/go/storage"
 	"github.com/GoogleCloudPlatform/testgrid/metadata/junit"
+	"github.com/dmage/triage/pkg/cache"
+	"github.com/dmage/triage/pkg/types"
 	"google.golang.org/api/iterator"
 	"k8s.io/klog/v2"
 )
@@ -42,27 +42,6 @@ func (e InvalidJSONError) Unwrap() error {
 	return e.err
 }
 
-type Build struct {
-	Job       string
-	BuildID   string
-	GCSBucket string
-	GCSPrefix string
-}
-
-func (b Build) String() string {
-	return fmt.Sprintf("%s @ %s (gs://%s/%s)", b.Job, b.BuildID, b.GCSBucket, b.GCSPrefix)
-}
-
-type BuildFiles struct {
-	Build *Build              `json:"build"`
-	Files map[string]struct{} `json:"files"`
-}
-
-func (f BuildFiles) Has(filename string) bool {
-	_, ok := f.Files[f.Build.GCSPrefix+filename]
-	return ok
-}
-
 type StartedJson struct {
 	Timestamp int64 `json:"timestamp"`
 }
@@ -89,14 +68,14 @@ type TestResult struct {
 }
 
 type Client struct {
-	cacheDir  string
 	gcsClient *storage.Client
+	gcsCache  *cache.FSCache
 }
 
 func NewClient(gcsClient *storage.Client) *Client {
 	return &Client{
-		cacheDir:  "./cache",
 		gcsClient: gcsClient,
+		gcsCache:  cache.NewDefaultFSCache(),
 	}
 }
 
@@ -149,58 +128,20 @@ func (c *Client) gcsListFiles(ctx context.Context, bucket, prefix string) (files
 }
 
 func (c *Client) gcsOpen(ctx context.Context, bucket string, object string) (io.ReadCloser, error) {
-	// object may have /, so this code won't work on Windows
-	path := fmt.Sprintf("%s/%s/%s", c.cacheDir, bucket, object)
+	return c.gcsCache.Open(fmt.Sprintf("%s/%s", bucket, object), func() (io.ReadCloser, error) {
+		klog.V(4).Infof("Downloading gs://%s/%s...", bucket, object)
 
-	f, err := os.Open(path)
-	if err == nil {
-		klog.V(4).Infof("Found gs://%s/%s in cache", bucket, object)
-		return f, nil
-	}
-	if !os.IsNotExist(err) {
-		return nil, err
-	}
-	klog.V(4).Infof("Downloading gs://%s/%s...", bucket, object)
+		bkt := c.gcsClient.Bucket(bucket)
+		r, err := bkt.Object(object).NewReader(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open gs://%s/%s: %w", bucket, object, err)
+		}
 
-	err = os.MkdirAll(filepath.Dir(path), os.ModePerm)
-	if err != nil {
-		return nil, err
-	}
-
-	bkt := c.gcsClient.Bucket(bucket)
-	r, err := bkt.Object(object).NewReader(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open gs://%s/%s: %w", bucket, object, err)
-	}
-	defer r.Close()
-
-	f, err = os.Create(path + ".part")
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = io.Copy(f, r)
-	if err != nil {
-		// Best effort cleanup
-		_ = f.Close()
-		_ = os.Remove(path + ".part")
-		return nil, fmt.Errorf("failed to cache gs://%s/%s: %w", bucket, object, err)
-	}
-
-	err = f.Close()
-	if err != nil {
-		return nil, err
-	}
-
-	err = os.Rename(path+".part", path)
-	if err != nil {
-		return nil, err
-	}
-
-	return os.Open(path)
+		return r, nil
+	})
 }
 
-func (c *Client) FindBuilds(ctx context.Context, name, gcsBucketPrefix string) ([]*Build, error) {
+func (c *Client) FindBuilds(ctx context.Context, name, gcsBucketPrefix string) ([]*types.Build, error) {
 	if !strings.HasSuffix(gcsBucketPrefix, "/") {
 		gcsBucketPrefix += "/"
 	}
@@ -212,7 +153,7 @@ func (c *Client) FindBuilds(ctx context.Context, name, gcsBucketPrefix string) (
 
 	klog.V(2).Infof("Searching for %s builds (gs://%s/%s)...", name, bucket, prefix)
 
-	var builds []*Build
+	var builds []*types.Build
 	dirs, _, err := c.gcsListDir(ctx, bucket, prefix)
 	if err != nil {
 		return nil, err
@@ -222,7 +163,7 @@ func (c *Client) FindBuilds(ctx context.Context, name, gcsBucketPrefix string) (
 			panic(fmt.Errorf("unexpected object from gcs: object is expected to have prefix %q, got %q", prefix, dir))
 		}
 		buildID := dir[len(prefix) : len(dir)-1]
-		build := &Build{
+		build := &types.Build{
 			Job:       name,
 			BuildID:   buildID,
 			GCSBucket: bucket,
@@ -233,7 +174,7 @@ func (c *Client) FindBuilds(ctx context.Context, name, gcsBucketPrefix string) (
 	return builds, nil
 }
 
-func (c *Client) GetBuildFiles(ctx context.Context, build *Build) (*BuildFiles, error) {
+func (c *Client) GetBuildFiles(ctx context.Context, build *types.Build) (*types.BuildFiles, error) {
 	files, err := c.gcsListFiles(ctx, build.GCSBucket, build.GCSPrefix)
 	if err != nil {
 		return nil, err
@@ -244,13 +185,13 @@ func (c *Client) GetBuildFiles(ctx context.Context, build *Build) (*BuildFiles, 
 		m[f] = struct{}{}
 	}
 
-	return &BuildFiles{
+	return &types.BuildFiles{
 		Build: build,
 		Files: m,
 	}, nil
 }
 
-func (c *Client) GetStartedJson(ctx context.Context, build *Build) (StartedJson, error) {
+func (c *Client) GetStartedJson(ctx context.Context, build *types.Build) (StartedJson, error) {
 	var j StartedJson
 	f, err := c.gcsOpen(ctx, build.GCSBucket, build.GCSPrefix+"started.json")
 	if err != nil {
@@ -267,7 +208,7 @@ func (c *Client) GetStartedJson(ctx context.Context, build *Build) (StartedJson,
 	return j, nil
 }
 
-func (c *Client) GetFinishedJson(ctx context.Context, build *Build) (FinishedJson, error) {
+func (c *Client) GetFinishedJson(ctx context.Context, build *types.Build) (FinishedJson, error) {
 	var j FinishedJson
 	f, err := c.gcsOpen(ctx, build.GCSBucket, build.GCSPrefix+"finished.json")
 	if err != nil {
@@ -325,7 +266,7 @@ func analyzeSuites(suites []junit.Suite) []*TestResult {
 	return results
 }
 
-func (c *Client) GetTestResults(ctx context.Context, buildFiles *BuildFiles) ([]*TestResult, error) {
+func (c *Client) GetTestResults(ctx context.Context, buildFiles *types.BuildFiles) ([]*TestResult, error) {
 	var results []*TestResult
 	for objectName := range buildFiles.Files {
 		if junitObject.MatchString(objectName) {
