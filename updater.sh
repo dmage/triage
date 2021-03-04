@@ -9,8 +9,6 @@ if [ -z "${PRODUCTION-}" ]; then
     sleep() { exit; }
 fi
 
-mkdir -p ./output/slices
-
 while true; do
     if [ ! -e ./cache/test-infra ]; then
         git clone https://github.com/kubernetes/test-infra.git ./cache/test-infra
@@ -24,14 +22,18 @@ while true; do
     scraper discover-testgrid ./cache/test-infra/config/testgrids/openshift/redhat-openshift-*.yaml --age="$MAX_AGE" -v=3
     scraper export-triage --builds=./tmp/triage_builds.json --tests=./tmp/triage_tests.json --age="$MAX_AGE" -v=2
     scraper cleanup --age="$MAX_AGE" -v=3
+    mkdir -p ./output/new/slices
     triage \
         --builds=./tmp/triage_builds.json \
-        --output=./output/failure_data_new.json \
-        --output_slices=./output/slices/failure_data_PREFIX.json \
+        --output=./output/new/failure_data.json \
+        --output_slices=./output/new/slices/failure_data_PREFIX.json \
         --previous=./output/failure_data.json \
         ${NUM_WORKERS:+"--num_workers=${NUM_WORKERS}"} \
         ./tmp/triage_tests.json
-    mv ./output/failure_data_new.json ./output/failure_data.json
+    (cd ./output/new && tar -cf ./failure_data.tar -- *)
+    mv ./output/new/slices/* ./output/slices
+    mv ./output/new/failure_data.json ./output/new/failure_data.tar ./output
+    rm -rf ./output/new
 
     sleep 1800
 done

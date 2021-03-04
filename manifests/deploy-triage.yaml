@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: triage
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: triage
+  strategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: triage
+    spec:
+      containers:
+      - name: updater
+        image: quay.io/rh-obulatov/triage@sha256:a2674d0c38be5a7b1f7c115101154d991f883e13aa45572910b9d1777d2098c2
+        command:
+        - /bin/sh
+        - -c
+        - |-
+          while true; do
+            curl -fsS --max-time 60 -z ./output/failure_data.tar -o ./output/failure_data.tar.new http://scraper.triage.svc/data/failure_data.tar
+            if [ -e ./output/failure_data.tar.new ]; then
+              (cd ./output && tar xf ./failure_data.tar.new)
+              mv -v ./output/failure_data.tar.new ./output/failure_data.tar
+            fi
+            sleep 60
+          done
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "64Mi"
+            cpu: "50m"
+        env:
+        - name: NUM_WORKERS
+          value: "4"
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - name: tmp
+          mountPath: /var/triage/output
+      - name: server
+        image: quay.io/rh-obulatov/triage@sha256:a2674d0c38be5a7b1f7c115101154d991f883e13aa45572910b9d1777d2098c2
+        command:
+        - /usr/bin/server.sh
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "0.5"
+          limit:
+            memory: "512Mi"
+            cpu: "1"
+        ports:
+        - containerPort: 8080
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - name: tmp
+          mountPath: /var/triage/output
+      volumes:
+      - name: tmp
+        emptyDir: {}

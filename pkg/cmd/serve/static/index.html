@@ -41,6 +41,7 @@ Sort by
 <label><input name="sort" type="radio" value="day" checked>count in last day</label>
 <label><input name="sort" type="radio" value="message">error message</label>
 <br>
+<label><input type="checkbox" id="grouping">Group clusters</label><br>
 <label style="display:none"><input type="checkbox" id="show-normalize">Display normalized errors</label><br>
 <table>
 <tr>
@@ -69,6 +70,7 @@ Exclude Filter (these are regexes):
 </div>
 </body>
 <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+<script type="text/javascript" src="https://gist.githack.com/dmage/dac412f62c49dd072c6d11ede1705221/raw/grouping.js"></script>
 <script src="model.js"></script>
 <script src="render.js"></script>
 <script src="interactive.js"></script>

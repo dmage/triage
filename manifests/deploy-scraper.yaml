@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: triage
+  name: scraper
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: triage
+      app: scraper
   strategy:
     type: Recreate
   template:
     metadata:
       labels:
-        app: triage
+        app: scraper
     spec:
       containers:
       - name: updater
-        image: quay.io/rh-obulatov/triage@sha256:b72ea364b61d3fc823b0320ba4f063ee8c0db49d5490d6d6fe4e401189929f87
+        image: quay.io/rh-obulatov/triage@sha256:a2674d0c38be5a7b1f7c115101154d991f883e13aa45572910b9d1777d2098c2
         command:
         - /usr/bin/updater.sh
         resources:
@@ -38,16 +38,16 @@ spec:
         - name: output
           mountPath: /var/triage/output
       - name: server
-        image: quay.io/rh-obulatov/triage@sha256:b72ea364b61d3fc823b0320ba4f063ee8c0db49d5490d6d6fe4e401189929f87
+        image: quay.io/rh-obulatov/triage@sha256:a2674d0c38be5a7b1f7c115101154d991f883e13aa45572910b9d1777d2098c2
         command:
         - /usr/bin/server.sh
         resources:
           requests:
-            memory: "256Mi"
-            cpu: "0.5"
+            memory: "64Mi"
+            cpu: "50m"
           limit:
-            memory: "512Mi"
-            cpu: "1"
+            memory: "64Mi"
+            cpu: "50m"
         ports:
         - containerPort: 8080
         terminationMessagePolicy: FallbackToLogsOnError

@@ -295,7 +295,8 @@ function renderCluster(top, cluster) {
     createElement('h2', null, [
       `${plural(clusterSum, 'test failure', 's')} (${todayCount} today) look like `,
       createElement('a', {href: '#' + id}, 'link'),
-      createElement('a', {href: 'https://github.com/search?type=Issues&q=org:kubernetes%20' + id, target: '_blank', rel: 'noopener'}, 'search github'),
+      cluster.issueLink ? createElement('a', {href: cluster.issueLink}, 'bug') : "",
+      //createElement('a', {href: 'https://github.com/search?type=Issues&q=org:kubernetes%20' + id, target: '_blank', rel: 'noopener'}, 'search github'),
       //fileBug,
       ownerTag,
     ]),

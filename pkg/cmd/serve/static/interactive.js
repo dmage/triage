@@ -58,6 +58,7 @@ function readOptions() {
     reXTest: read('filter-exclude-test'),
     showNormalize: read('show-normalize'),
     sort: read('sort'),
+    grouping: read('grouping'),
     sig: readSigs(),
   };
 
@@ -75,6 +76,7 @@ function readOptions() {
       url += '&' + name + '=' + encodeURIComponent(baseRe);
     }
   }
+  if (opts.grouping) url += '&grouping=1';
   if (url) {
     if (document.location.hash) {
       url += document.location.hash;
@@ -129,6 +131,7 @@ function setOptionsFromURL() {
   write('filter-exclude-text', qs.xtext);
   write('filter-exclude-job', qs.xjob);
   write('filter-exclude-test', qs.xtest);
+  write('grouping', qs.grouping);
   writeSigs(qs.sig);
 }
 
@@ -186,6 +189,8 @@ function rerender(maxCount) {
     if (!clustered.byId[keyId]) {
       var summary = document.getElementById('summary');
       summaryText = `Cluster ${keyId} not found in the last week of data.`
+    } else {
+      clustered.data = [clustered.byId[keyId]];
     }
   }
 
@@ -296,8 +301,14 @@ function get(uri, callback, onprogress) {
 
 function getData() {
   var clusterId = null;
+  var groupId = null;
   if (/^#[a-f0-9]{20}$/.test(window.location.hash)) {
     clusterId = window.location.hash.slice(1);
+    // Hide filtering options, since this page has only a single cluster.
+    setElementVisibility('multiple-options', false);
+    setElementVisibility('btn-sig-group', false);
+  } else if (/^#group-[a-z0-9-]+$/.test(window.location.hash)) {
+    groupId = window.location.hash.slice(1);
     // Hide filtering options, since this page has only a single cluster.
     setElementVisibility('multiple-options', false);
     setElementVisibility('btn-sig-group', false);
@@ -347,7 +358,7 @@ function getData() {
             }
           }
         }
-        clusteredAll = new Clusters(data.clustered, clusterId);
+        clusteredAll = new Clusters(data.clustered, clusterId || groupId);
         rerender();
       }, 0);
     },

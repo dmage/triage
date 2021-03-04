@@ -137,6 +137,39 @@ function getHitsInLastDay(entry) {
   return count;
 }
 
+function mergeJobs(jobs) {
+  var jobsMap = {};
+  for (let job of jobs) {
+    if (jobsMap[job.name] === undefined) {
+        jobsMap[job.name] = Object.assign({}, job);
+        jobsMap[job.name].builds = {};
+    }
+    for (let build of job.builds) {
+      jobsMap[job.name].builds[build] = true;
+    }
+  }
+  var jobsOut = Object.values(jobsMap);
+  for (let job of jobsOut) {
+    job.builds = sortByKey(Object.keys(job.builds), j => [j]);
+  }
+  return sortByKey(jobsOut, j => [-j.builds.length, j.name]);
+}
+
+function mergeTests(tests) {
+  var testsMap = {};
+  for (let test of tests) {
+    if (testsMap[test.name] === undefined) {
+        testsMap[test.name] = Object.assign({}, test);
+    } else {
+        testsMap[test.name].jobs = testsMap[test.name].jobs.concat(test.jobs);
+    }
+  }
+  for (let test of tests) {
+      testsMap[test.name].jobs = mergeJobs(testsMap[test.name].jobs);
+  }
+  return sortByKey(Object.values(testsMap), t => [-sum(t.jobs, j => j.builds.length)]);
+}
+
 // Store test clusters and support iterating and refiltering through them.
 class Clusters {
   constructor(clustered, clusterId) {
@@ -177,6 +210,9 @@ class Clusters {
 
   // Return a new Clusters object, with the given filters applied.
   refilter(opts) {
+    var groups = groupingGroups || [];
+    var links = groupingLinks || {};
+
     var out = [];
     for (let cluster of this.data) {
       if ((opts.reText && !opts.reText.test(cluster.text)) ||
@@ -211,8 +247,36 @@ class Clusters {
       }
       if (testsOut.length > 0) {
         testsOut = sortByKey(testsOut, t => [-sum(t.jobs, j => j.builds.length)]);
-        out.push(Object.assign({}, cluster, {tests: testsOut}));
+        out.push(Object.assign({}, cluster, {tests: testsOut, issueLink: links[cluster.id]}));
       }
+    }
+
+    if (options.grouping) {
+      for (let g of groups) {
+        var text = "group: " + g.id + "\ntriage:failure=" + g.m;
+        var fakeCluster = {
+          id: "group-" + g.id,
+          key: "group-" + g.id,
+          group: g.id,
+          issueLink: g.issueLink,
+          spans: [text.length],
+          tests: [],
+          text: text,
+        };
+        for (let cluster of out) {
+          if (g.m.test(cluster.text)) {
+            cluster.grouped = true;
+            fakeCluster.tests = fakeCluster.tests.concat(cluster.tests);
+          }
+        }
+        if (fakeCluster.tests.length !== 0) {
+          fakeCluster.tests = mergeTests(fakeCluster.tests);
+          out.push(fakeCluster);
+        }
+      }
+      console.log("before filtering:", out.length);
+      out = out.filter(c => !c.grouped);
+      console.log("after filtering:", out.length);
     }
 
     if (opts.sort) {

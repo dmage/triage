@@ -6,7 +6,7 @@ RUN go build ./cmd/scraper
 RUN go build ./vendor/k8s.io/test-infra/triage/
 
 FROM alpine
-RUN apk add --no-cache git
+RUN apk add --no-cache git curl
 COPY --from=builder /go/src/github.com/dmage/triage/scraper /usr/bin/scraper
 COPY --from=builder /go/src/github.com/dmage/triage/triage /usr/bin/triage
 COPY --from=builder /go/src/github.com/dmage/triage/updater.sh /usr/bin/updater.sh
