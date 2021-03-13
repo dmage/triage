@@ -7,6 +7,7 @@ import (
 
 	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/dmage/triage/pkg/cache"
+	"github.com/dmage/triage/pkg/kvcache"
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 )
@@ -24,7 +25,7 @@ func (opts *CleanupOptions) Run(ctx context.Context) error {
 	}
 	defer db.Close()
 
-	cache := cache.NewDefaultFSCache()
+	cache := kvcache.NewDefaultKVCache()
 
 	builds, err := db.FindOldBuilds(opts.createdAfter)
 	if err != nil {
@@ -34,7 +35,7 @@ func (opts *CleanupOptions) Run(ctx context.Context) error {
 	klog.V(2).Infof("Found %d builds", len(builds))
 
 	for _, build := range builds {
-		err := cache.DeleteByPrefix(fmt.Sprintf("%s/%s", build.GCSBucket, build.GCSPrefix))
+		err := cache.Delete(fmt.Sprintf("%s/%s", build.Job, build.BuildID))
 		if err != nil {
 			return err
 		}

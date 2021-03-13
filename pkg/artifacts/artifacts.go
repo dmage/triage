@@ -12,7 +12,6 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/GoogleCloudPlatform/testgrid/metadata/junit"
-	"github.com/dmage/triage/pkg/cache"
 	"github.com/dmage/triage/pkg/types"
 	"google.golang.org/api/iterator"
 	"k8s.io/klog/v2"
@@ -69,13 +68,11 @@ type TestResult struct {
 
 type Client struct {
 	gcsClient *storage.Client
-	gcsCache  *cache.FSCache
 }
 
 func NewClient(gcsClient *storage.Client) *Client {
 	return &Client{
 		gcsClient: gcsClient,
-		gcsCache:  cache.NewDefaultFSCache(),
 	}
 }
 
@@ -128,17 +125,15 @@ func (c *Client) gcsListFiles(ctx context.Context, bucket, prefix string) (files
 }
 
 func (c *Client) gcsOpen(ctx context.Context, bucket string, object string) (io.ReadCloser, error) {
-	return c.gcsCache.Open(fmt.Sprintf("%s/%s", bucket, object), func() (io.ReadCloser, error) {
-		klog.V(4).Infof("Downloading gs://%s/%s...", bucket, object)
+	klog.V(4).Infof("Downloading gs://%s/%s...", bucket, object)
 
-		bkt := c.gcsClient.Bucket(bucket)
-		r, err := bkt.Object(object).NewReader(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to open gs://%s/%s: %w", bucket, object, err)
-		}
+	bkt := c.gcsClient.Bucket(bucket)
+	r, err := bkt.Object(object).NewReader(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open gs://%s/%s: %w", bucket, object, err)
+	}
 
-		return r, nil
-	})
+	return r, nil
 }
 
 func (c *Client) FindBuilds(ctx context.Context, name, gcsBucketPrefix string) ([]*types.Build, error) {

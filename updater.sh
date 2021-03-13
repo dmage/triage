@@ -5,7 +5,7 @@ MAX_AGE=336h
 if [ -z "${PRODUCTION-}" ]; then
     echo "DEVELOPMENT MODE" >&2
     PATH="$PWD/hack:$PATH"
-    MAX_AGE=24h
+    MAX_AGE=48h
     sleep() { exit; }
 fi
 
@@ -20,7 +20,7 @@ while true; do
     fi
 
     scraper discover-testgrid ./cache/test-infra/config/testgrids/openshift/redhat-openshift-*.yaml --age="$MAX_AGE" -v=3
-    scraper export-triage --builds=./tmp/triage_builds.json --tests=./tmp/triage_tests.json --age="$MAX_AGE" -v=2
+    scraper export-triage --builds=./tmp/triage_builds.json --tests=./tmp/triage_tests.json --age="$MAX_AGE" -v=3
     scraper cleanup --age="$MAX_AGE" -v=3
     mkdir -p ./output/new/slices
     triage \

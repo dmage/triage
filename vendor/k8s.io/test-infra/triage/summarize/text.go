@@ -188,8 +188,8 @@ func findMatch(fnorm string, candidates []string) (result string, found bool) {
 	sort.Slice(distancePairs, func(i, j int) bool { return distancePairs[i].distResult < distancePairs[j].distResult })
 
 	for _, pair := range distancePairs {
-		// allow up to 5% differences
-		limit := int(float32(len(fnorm)+len(pair.key)) / 2.0 * 0.05)
+		// allow up to 10% differences
+		limit := int(float32(len(fnorm)+len(pair.key)) / 2.0 * 0.10)
 
 		if pair.distResult > limit {
 			continue

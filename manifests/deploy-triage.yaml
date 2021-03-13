@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: updater
-        image: quay.io/rh-obulatov/triage@sha256:a2674d0c38be5a7b1f7c115101154d991f883e13aa45572910b9d1777d2098c2
+        image: quay.io/rh-obulatov/triage
         command:
         - /bin/sh
         - -c
@@ -44,7 +44,7 @@ spec:
         - name: tmp
           mountPath: /var/triage/output
       - name: server
-        image: quay.io/rh-obulatov/triage@sha256:a2674d0c38be5a7b1f7c115101154d991f883e13aa45572910b9d1777d2098c2
+        image: quay.io/rh-obulatov/triage
         command:
         - /usr/bin/server.sh
         resources:
@@ -56,6 +56,10 @@ spec:
             cpu: "1"
         ports:
         - containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - name: tmp
