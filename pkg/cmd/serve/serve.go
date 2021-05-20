@@ -5,9 +5,11 @@ import (
 	"embed"
 	"io/fs"
 	"net/http"
+	"os"
 
 	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/NYTimes/gziphandler"
+	"github.com/gorilla/handlers"
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 )
@@ -25,17 +27,20 @@ func (opts *ServeOptions) Run(ctx context.Context) error {
 		return err
 	}
 
-	http.Handle("/", http.FileServer(http.FS(root)))
+	mux := http.NewServeMux()
+	mux.Handle("/", http.FileServer(http.FS(root)))
 
 	dataHandler := http.StripPrefix("/data/", http.FileServer(http.Dir(opts.FailureData)))
 	cachedDataHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "max-age=120")
 		dataHandler.ServeHTTP(w, r)
 	})
-	http.Handle("/data/", gziphandler.GzipHandler(cachedDataHandler))
+	mux.Handle("/data/", gziphandler.GzipHandler(cachedDataHandler))
+
+	handler := handlers.CombinedLoggingHandler(os.Stdout, mux)
 
 	klog.Info("Listening http://localhost:8080...")
-	return http.ListenAndServe(":8080", nil)
+	return http.ListenAndServe(":8080", handler)
 }
 
 func NewCmdServe() *cobra.Command {

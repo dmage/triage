@@ -271,7 +271,8 @@ func (c *Client) GetTestResults(ctx context.Context, buildFiles *types.BuildFile
 			}
 			suites, err := junit.ParseStream(f)
 			if err != nil {
-				return results, fmt.Errorf("unable to parse gs://%s/%s: %w", buildFiles.Build.GCSBucket, objectName, err)
+				klog.Warningf("unable to parse gs://%s/%s: %w", buildFiles.Build.GCSBucket, objectName, err)
+				continue
 			}
 			testResults := analyzeSuites(suites.Suites)
 			f.Close()

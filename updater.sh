@@ -30,6 +30,7 @@ while true; do
         --previous=./output/failure_data.json \
         ${NUM_WORKERS:+"--num_workers=${NUM_WORKERS}"} \
         ./tmp/triage_tests.json
+    rm ./tmp/triage_builds.json ./tmp/triage_tests.json
     (cd ./output/new && tar -cf ./failure_data.tar -- *)
     mv ./output/new/slices/* ./output/slices
     mv ./output/new/failure_data.json ./output/new/failure_data.tar ./output

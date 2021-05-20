@@ -67,6 +67,9 @@ type jsonBuild struct {
 	TestsFailed string `json:"tests_failed"`
 	Job         string `json:"job"`
 	Number      string `json:"number"`
+
+	// Additional info that is not required for triage dashboard
+	Result string `json:"result"`
 }
 
 type jsonFailure struct {
@@ -248,7 +251,9 @@ func (opts *ExportTriageOptions) createBuildData(ctx context.Context, db *cache.
 	}
 
 	finished, err := client.GetFinishedJson(ctx, &build)
-	if err != nil {
+	if artifacts.IsInvalidJSON(err) {
+		klog.V(2).Infof("%s @ %s has corrupted finished.json: %s", build.Job, build.BuildID, err)
+	} else if err != nil {
 		return nil, err
 	}
 
@@ -318,13 +323,18 @@ func (opts *ExportTriageOptions) handleBuild(ctx context.Context, db *cache.Stor
 			testsRun++
 			stats.Succeed++
 		case artifacts.TestStatusFailure:
+			summary := r.Summary
+			if idx := strings.Index(summary, "\n\n"); idx != -1 {
+				summary = summary[:idx]
+			}
+
 			testsRun++
 			testsFailed++
 			jsonFailures <- jsonFailure{
 				Started:     fmt.Sprintf("%d", buildData.StartedJson.Timestamp),
 				Path:        path,
 				Name:        r.Test,
-				FailureText: r.Summary,
+				FailureText: summary,
 			}
 			stats.Failed++
 		case artifacts.TestStatusSkipped:
@@ -342,6 +352,7 @@ func (opts *ExportTriageOptions) handleBuild(ctx context.Context, db *cache.Stor
 		TestsFailed: fmt.Sprintf("%d", testsFailed),
 		Job:         build.Job,
 		Number:      build.BuildID,
+		Result:      buildData.FinishedJson.Result,
 	}
 
 	buildSummaries <- bs
