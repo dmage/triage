@@ -9,5 +9,5 @@ resources:
 - service-scraper.yaml
 - service-triage.yaml
 images:
-- digest: sha256:7b9138209567f1ab616ea1ecd86ab6e50ffe6ecdc8a1a5af5d412b426924c798
+- digest: sha256:095445a8ded8ab0d23bd33bdf34ec3e91005dc8fb5778ed5281e88e22308264c
   name: quay.io/rh-obulatov/triage
